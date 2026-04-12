@@ -5,21 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>to Aimer</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #2f2f2f; font-family: sans-serif; user-select: none; }
+        body { margin: 0; overflow: hidden; background-color: #2f2f2f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
         canvas { display: block; }
         #start-message { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #00ffcc; font-size: 28px; font-weight: bold; text-transform: uppercase; text-shadow: 0 0 15px rgba(0, 255, 204, 0.7); z-index: 200; pointer-events: none; }
         #ui-toggle-btn { position: fixed; top: 20px; left: 20px; background: rgba(0, 255, 204, 0.2); color: #00ffcc; border: 1px solid #00ffcc; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; z-index: 50; display: none; opacity: 0.6; transition: opacity 0.3s; }
         #ui-toggle-btn:hover { opacity: 1.0; }
         #crosshair { position: fixed; top: 50%; left: 50%; width: 6px; height: 6px; background: white; border: 1px solid black; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 10; }
-        #settings-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 360px; background: rgba(20, 20, 20, 0.98); padding: 25px; border-radius: 15px; color: white; display: none; flex-direction: column; gap: 12px; border: 1px solid #444; z-index: 100; max-height: 90vh; overflow-y: auto; }
-        .setting-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-        .setting-row label { font-size: 13px; min-width: 90px; }
-        input[type="range"] { flex: 1; accent-color: #00ffcc; cursor: pointer; }
-        input[type="number"] { width: 60px; background: #111; color: #00ffcc; border: 1px solid #444; text-align: center; }
+        #settings-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 340px; background: rgba(20, 20, 20, 0.98); padding: 25px; border-radius: 15px; color: white; display: none; flex-direction: column; gap: 12px; border: 1px solid #444; z-index: 100; max-height: 90vh; overflow-y: auto; }
+        
+        .setting-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; }
+        .setting-row label { font-size: 13px; width: 100px; flex-shrink: 0; }
+        input[type="range"] { flex-grow: 1; accent-color: #00ffcc; cursor: pointer; height: 6px; }
+        input[type="number"], .value-display { width: 60px; background: #111; color: #00ffcc; border: 1px solid #444; text-align: center; font-size: 13px; padding: 2px 0; flex-shrink: 0; }
+        
         #score-board { position: fixed; top: 20px; right: 20px; color: #00ffcc; font-size: 24px; font-weight: bold; pointer-events: none; }
         button { padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; border: none; }
         #resumeB { background: #00ffcc; color: #111; margin-top: 10px; }
         #resetB { background: #333; color: #ff4444; border: 1px solid #ff4444; margin-top: 5px; font-size: 12px; }
+
+        .switch { position: relative; display: inline-block; width: 51px !important; height: 31px !important; min-width: 51px !important; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #39393d; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 31px; }
+        .slider:before { position: absolute; content: ""; height: 27px; width: 27px; left: 2px; bottom: 2px; background-color: white; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%; box-shadow: 0 3px 6px rgba(0,0,0,0.4); }
+        input:checked + .slider { background-color: #34c759; }
+        input:checked + .slider:before { transform: translateX(20px); }
     </style>
 </head>
 <body>
@@ -36,11 +45,20 @@
     <div class="setting-row"><label>グリッド X</label><input type="range" id="gridXS" min="1" max="20" step="1"><input type="number" id="gridXI" min="1" max="20"></div>
     <div class="setting-row"><label>グリッド Y</label><input type="range" id="gridYS" min="1" max="20" step="1"><input type="number" id="gridYI" min="1" max="20"></div>
     <div class="setting-row"><label>的の移動速度</label><input type="range" id="moveS" min="0" max="50" step="1"><input type="number" id="moveI" min="0" max="50"></div>
-    <div class="setting-row"><label>距離</label><input type="range" id="distS" min="5" max="50"><span id="distV" style="width:40px; text-align:right;">15m</span></div>
-    <div class="setting-row"><label>サイズ</label><input type="range" id="sizeS" min="0.2" max="2" step="0.1"></div>
-    <div class="setting-row"><label>的カラー</label><input type="color" id="colorI"></div>
+    <div class="setting-row"><label>距離</label><input type="range" id="distS" min="5" max="50"><span id="distV" class="value-display">15m</span></div>
+    <div class="setting-row"><label>サイズ</label><input type="range" id="sizeS" min="1" max="15" step="1"><input type="number" id="sizeI" min="1" max="15"></div>
+    <div class="setting-row"><label>的なカラー</label><input type="color" id="colorI"></div>
     <div class="setting-row"><label>背景カラー</label><input type="color" id="bgColorI"></div>
-    <div class="setting-row"><label>SE再生</label><input type="checkbox" id="soundI"></div>
+    
+    <div class="setting-row">
+        <label>背景グリッド</label>
+        <label class="switch"><input type="checkbox" id="gridToggleI"><span class="slider"></span></label>
+    </div>
+    <div class="setting-row">
+        <label>SE再生</label>
+        <label class="switch"><input type="checkbox" id="soundI"><span class="slider"></span></label>
+    </div>
+
     <button id="resumeB">ゲームを再開 (T)</button>
     <button id="resetB">設定をリセット</button>
 </div>
@@ -48,7 +66,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
     const STORAGE_KEY = 'aimer_settings_v3_box';
-    const defaultConfig = { sens: 0.5, dist: 15, size: 1.2, color: '#00ffcc', bgColor: '#2f2f2f', sound: true, maxTargets: 3, gridX: 5, gridY: 5, moveSpeed: 0 };
+    const defaultConfig = { sens: 0.5, dist: 15, size: 8, color: '#00ffcc', bgColor: '#2f2f2f', sound: true, maxTargets: 3, gridX: 5, gridY: 5, moveSpeed: 0, showGrid: true };
     let config = { ...defaultConfig };
 
     const scene = new THREE.Scene();
@@ -66,67 +84,40 @@
     let targets = [], currentGrid = [], score = 0, lastIdx = -1, isFirstInteraction = true;
     const geom = new THREE.SphereGeometry(0.7, 32, 32), hitSound = new Audio('hit.mp3'), ray = new THREE.Raycaster();
 
-    // --- 空間を正方形の箱として定義 ---
     const boxSize = 100;
-    const gridDivs = 10; // 分割数を20から10に変更（マス目を半分にする）
-    const gridColor = 0x000000;
-
+    const grids = [];
     const createGrid = (x, y, z, rx, ry, rz) => {
-        const g = new THREE.GridHelper(boxSize, gridDivs, gridColor, gridColor);
-        g.position.set(x, y, z);
-        g.rotation.set(rx, ry, rz);
-        g.material.opacity = 0.4;
-        g.material.transparent = true;
-        scene.add(g);
+        const g = new THREE.GridHelper(boxSize, 10, 0x000000, 0x000000);
+        g.position.set(x, y, z); g.rotation.set(rx, ry, rz);
+        g.material.opacity = 0.4; g.material.transparent = true;
+        scene.add(g); grids.push(g);
     };
-
-    // 床・天井 (XZ面)
-    createGrid(0, -boxSize/2, 0, 0, 0, 0); // 下
-    createGrid(0, boxSize/2, 0, 0, 0, 0);  // 上
-    // 左右の壁 (YZ面)
-    createGrid(-boxSize/2, 0, 0, 0, 0, Math.PI/2); // 左
-    createGrid(boxSize/2, 0, 0, 0, 0, Math.PI/2);  // 右
-    // 前後の壁 (XY面)
-    createGrid(0, 0, -boxSize/2, Math.PI/2, 0, 0); // 前
-    createGrid(0, 0, boxSize/2, Math.PI/2, 0, 0);  // 後
-
-    function updateTargetLimit() {
-        const limit = Math.max(0, (config.gridX * config.gridY) - 1);
-        const s = document.getElementById('countS'), i = document.getElementById('countI');
-        s.max = i.max = limit;
-        if (config.maxTargets > limit) {
-            config.maxTargets = limit;
-            s.value = i.value = limit;
-        }
-        while(targets.length > config.maxTargets) {
-            const t = targets.pop();
-            if(t) scene.remove(t);
-        }
-    }
+    createGrid(0, -50, 0, 0, 0, 0); createGrid(0, 50, 0, 0, 0, 0);
+    createGrid(-50, 0, 0, 0, 0, Math.PI/2); createGrid(50, 0, 0, 0, 0, Math.PI/2);
+    createGrid(0, 0, -50, Math.PI/2, 0, 0); createGrid(0, 0, 50, Math.PI/2, 0, 0);
 
     function initUI() {
         document.getElementById('sensS').value = document.getElementById('sensI').value = config.sens;
         document.getElementById('gridXS').value = document.getElementById('gridXI').value = config.gridX;
         document.getElementById('gridYS').value = document.getElementById('gridYI').value = config.gridY;
-        updateTargetLimit();
         document.getElementById('countS').value = document.getElementById('countI').value = config.maxTargets;
         document.getElementById('moveS').value = document.getElementById('moveI').value = config.moveSpeed;
         document.getElementById('distS').value = config.dist;
         document.getElementById('distV').innerText = config.dist + "m";
-        document.getElementById('sizeS').value = config.size;
+        document.getElementById('sizeS').value = document.getElementById('sizeI').value = config.size;
         document.getElementById('colorI').value = config.color;
         document.getElementById('bgColorI').value = config.bgColor;
         document.getElementById('soundI').checked = config.sound;
+        document.getElementById('gridToggleI').checked = config.showGrid;
         scene.background = new THREE.Color(config.bgColor);
+        grids.forEach(g => g.visible = config.showGrid);
     }
 
     function rebuildGrid() {
         currentGrid = [];
         const step = 2.5, offsetX = (config.gridX - 1) * step / 2, offsetY = (config.gridY - 1) * step / 2;
         for(let y = 0; y < config.gridY; y++) for(let x = 0; x < config.gridX; x++) currentGrid.push({ x: x * step - offsetX, y: y * step - offsetY });
-        updateTargetLimit();
-        targets.forEach(t => scene.remove(t));
-        targets = [];
+        targets.forEach(t => scene.remove(t)); targets = [];
     }
 
     function spawn() {
@@ -154,16 +145,20 @@
     });
 
     window.addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 't') toggleGameFocus(); });
-    document.getElementById('ui-toggle-btn').addEventListener('mousedown', (e) => { e.stopPropagation(); toggleGameFocus(); });
+    document.getElementById('ui-toggle-btn').addEventListener('click', toggleGameFocus);
     document.getElementById('resumeB').addEventListener('click', toggleGameFocus);
     document.getElementById('resetB').addEventListener('click', () => { if(confirm('リセットしますか？')) { config = { ...defaultConfig }; localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); initUI(); rebuildGrid(); } });
 
+    // 視点移動処理の修正（以前の安定したロジックへ戻す）
     document.addEventListener('mousemove', (e) => {
         if (document.pointerLockElement !== document.body) return;
+        // 急激な移動制限を緩和/安定化
         if (Math.abs(e.movementX) > 600 || Math.abs(e.movementY) > 300) return;
+        
         const s = config.sens * 0.0006;
         yawObj.rotation.y -= e.movementX * s;
         pitchObj.rotation.x -= e.movementY * s;
+        // 垂直方向の可動域制限
         pitchObj.rotation.x = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, pitchObj.rotation.x));
     });
 
@@ -175,8 +170,7 @@
         if (hits.length > 0) {
             let t = hits[0].object;
             if (config.sound) { hitSound.currentTime = 0; hitSound.play().catch(()=>{}); }
-            lastIdx = t.gridIdx; scene.remove(t);
-            targets.splice(targets.indexOf(t), 1);
+            lastIdx = t.gridIdx; scene.remove(t); targets.splice(targets.indexOf(t), 1);
             score++; document.getElementById('score-board').innerText = score;
             spawn();
         }
@@ -190,20 +184,17 @@
     };
 
     sync('sensS', 'sensI', 'sens');
-    sync('countS', 'countI', 'maxTargets', () => {
-        const limit = Math.max(0, (config.gridX * config.gridY) - 1);
-        if (config.maxTargets > limit) config.maxTargets = limit;
-        while(targets.length > config.maxTargets) scene.remove(targets.pop());
-    });
+    sync('countS', 'countI', 'maxTargets');
     sync('gridXS', 'gridXI', 'gridX', rebuildGrid);
     sync('gridYS', 'gridYI', 'gridY', rebuildGrid);
     sync('moveS', 'moveI', 'moveSpeed');
+    sync('sizeS', 'sizeI', 'size');
 
     document.getElementById('distS').oninput = (e) => { config.dist = Number(e.target.value); document.getElementById('distV').innerText = e.target.value + "m"; localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
-    document.getElementById('sizeS').oninput = (e) => { config.size = Number(e.target.value); localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
     document.getElementById('colorI').oninput = (e) => { config.color = e.target.value; localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
     document.getElementById('bgColorI').oninput = (e) => { config.bgColor = e.target.value; scene.background.set(config.bgColor); localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
     document.getElementById('soundI').onchange = (e) => { config.sound = e.target.checked; localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
+    document.getElementById('gridToggleI').onchange = (e) => { config.showGrid = e.target.checked; grids.forEach(g => g.visible = config.showGrid); localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
 
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) config = { ...defaultConfig, ...JSON.parse(saved) };
@@ -213,16 +204,15 @@
         requestAnimationFrame(animate);
         if(targets.length < config.maxTargets) spawn();
         targets.forEach(t => {
+            const s = config.size * 0.15;
+            t.scale.set(s, s, s);
+            t.position.z = -config.dist;
+            t.material.color.set(config.color);
+            // 移動速度の設定がある場合のみ動かす
             if (config.moveSpeed > 0) {
                 t.position.x += t.vel * (config.moveSpeed * 0.003);
                 if (t.position.x > t.maxX || t.position.x < t.minX) t.vel *= -1;
-            } else if (currentGrid[t.gridIdx]) {
-                t.position.x = currentGrid[t.gridIdx].x;
             }
-            t.position.z = -config.dist;
-            t.scale.set(config.size, config.size, config.size);
-            t.material.color.set(config.color);
-            t.material.emissive.set(config.color);
         });
         renderer.render(scene, camera);
     }
