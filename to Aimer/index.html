@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>to Aimer</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: sans-serif; user-select: none; }
+        canvas { display: block; }
+
+        /* 起動時メッセージ */
+        #start-message {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #00ffcc; font-size: 28px; font-weight: bold; text-transform: uppercase;
+            text-shadow: 0 0 15px rgba(0, 255, 204, 0.7); z-index: 200; pointer-events: none; display: block;
+        }
+
+        /* 設定ボタン（常に表示するスタイル） */
+        #ui-toggle-btn {
+            position: fixed; top: 20px; left: 20px;
+            background: rgba(0, 255, 204, 0.2); color: #00ffcc;
+            border: 1px solid #00ffcc; padding: 8px 15px; border-radius: 5px;
+            cursor: pointer; font-weight: bold; z-index: 50;
+            display: none; /* 開始するまでは非表示 */
+            opacity: 0.6; transition: opacity 0.3s;
+        }
+        #ui-toggle-btn:hover { opacity: 1.0; }
+
+        #crosshair {
+            position: fixed; top: 50%; left: 50%; width: 6px; height: 6px;
+            background: white; border: 1px solid black; border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
+        }
+
+        #settings-menu {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 340px; background: rgba(20, 20, 20, 0.98); padding: 25px;
+            border-radius: 15px; color: white; display: none; flex-direction: column; gap: 12px;
+            border: 1px solid #444; z-index: 100; max-height: 90vh; overflow-y: auto;
+        }
+
+        .setting-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+        .setting-row label { font-size: 13px; min-width: 80px; }
+        input[type="range"] { flex: 1; accent-color: #00ffcc; cursor: pointer; }
+        input[type="number"] { width: 50px; background: #111; color: #00ffcc; border: 1px solid #444; text-align: center; }
+        #score-board { position: fixed; top: 20px; right: 20px; color: #00ffcc; font-size: 24px; font-weight: bold; pointer-events: none; }
+        #resumeB { background: #00ffcc; border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold; color: #111; width: 100%; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="start-message">Click to start</div>
+<div id="ui-toggle-btn">設定 (T)</div>
+
+<div id="crosshair"></div>
+<div id="score-board">0</div>
+
+<div id="settings-menu">
+    <h3 style="margin:0; text-align:center; color:#00ffcc; border-bottom:1px solid #333; padding-bottom:10px;">一時停止</h3>
+    
+    <div class="setting-row">
+        <label>感度</label>
+        <input type="range" id="sensS" min="0.01" max="10" step="0.01">
+        <input type="number" id="sensI" step="0.01">
+    </div>
+
+    <div class="setting-row">
+        <label>的の数</label>
+        <input type="range" id="countS" min="1" max="24" step="1">
+        <input type="number" id="countI" min="1" max="24">
+    </div>
+
+    <div class="setting-row">
+        <label>グリッド X</label>
+        <input type="range" id="gridXS" min="1" max="20" step="1">
+        <input type="number" id="gridXI" min="1" max="20">
+    </div>
+
+    <div class="setting-row">
+        <label>グリッド Y</label>
+        <input type="range" id="gridYS" min="1" max="20" step="1">
+        <input type="number" id="gridYI" min="1" max="20">
+    </div>
+
+    <div class="setting-row">
+        <label>距離</label>
+        <input type="range" id="distS" min="5" max="50">
+        <span id="distV" style="width:40px; text-align:right;">15m</span>
+    </div>
+
+    <div class="setting-row">
+        <label>サイズ</label>
+        <input type="range" id="sizeS" min="0.2" max="2" step="0.1">
+    </div>
+
+    <div class="setting-row">
+        <label>カラー</label>
+        <input type="color" id="colorI">
+    </div>
+
+    <div class="setting-row">
+        <label>SE再生</label>
+        <input type="checkbox" id="soundI">
+    </div>
+
+    <button id="resumeB">ゲームを再開 (T)</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // --- 保存・読込設定 ---
+    const STORAGE_KEY = 'aimer_settings_v1';
+    const defaultConfig = { 
+        sens: 0.5, dist: 15, size: 1.2, color: '#00ffcc', 
+        sound: true, maxTargets: 3, gridX: 5, gridY: 5 
+    };
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const config = saved ? JSON.parse(saved) : defaultConfig;
+    const save = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+
+    function initUI() {
+        document.getElementById('sensS').value = document.getElementById('sensI').value = config.sens;
+        document.getElementById('countS').value = document.getElementById('countI').value = config.maxTargets;
+        document.getElementById('gridXS').value = document.getElementById('gridXI').value = config.gridX;
+        document.getElementById('gridYS').value = document.getElementById('gridYI').value = config.gridY;
+        document.getElementById('distS').value = config.dist;
+        document.getElementById('distV').innerText = config.dist + "m";
+        document.getElementById('sizeS').value = config.size;
+        document.getElementById('colorI').value = config.color;
+        document.getElementById('soundI').checked = config.sound;
+    }
+
+    // --- ゲーム本体 ---
+    let score = 0, lastIdx = -1, targets = [];
+    let isFirstInteraction = true;
+    const hitSound = new Audio('hit.mp3');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x2f2f2f);
+    const getVerticalFov = (hFov) => 2 * Math.atan(Math.tan(hFov * Math.PI / 360) / (window.innerWidth / window.innerHeight)) * (180 / Math.PI);
+    const camera = new THREE.PerspectiveCamera(getVerticalFov(103), window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+    const room = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(100, 100, 100)),
+        new THREE.LineBasicMaterial({ color: 0x6a6a6a })
+    );
+    scene.add(room);
+
+    const yawObj = new THREE.Object3D();
+    const pitchObj = new THREE.Object3D();
+    scene.add(yawObj); yawObj.add(pitchObj); pitchObj.add(camera);
+
+    const menu = document.getElementById('settings-menu');
+    const resumeB = document.getElementById('resumeB');
+    const toggleBtn = document.getElementById('ui-toggle-btn');
+    const startMessage = document.getElementById('start-message');
+
+    const removeStartMessage = () => {
+        if (isFirstInteraction) {
+            startMessage.style.display = 'none';
+            toggleBtn.style.display = 'block'; // ゲーム開始時にボタンを出す
+            isFirstInteraction = false;
+        }
+    };
+
+    const toggleGameFocus = () => {
+        removeStartMessage();
+        if (document.pointerLockElement === document.body) document.exitPointerLock();
+        else document.body.requestPointerLock();
+    };
+
+    document.addEventListener('pointerlockchange', () => {
+        const isLocked = document.pointerLockElement === document.body;
+        // メニューが開いている時だけボタンを隠し、プレイ中は常に表示
+        menu.style.display = isLocked ? 'none' : 'flex';
+        toggleBtn.style.display = isLocked ? 'block' : 'none';
+    });
+
+    window.addEventListener('keydown', (e) => { 
+        if (e.key.toLowerCase() === 't') toggleGameFocus(); 
+    });
+
+    // 左上のボタン自体のクリック処理
+    toggleBtn.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        toggleGameFocus();
+    });
+
+    resumeB.addEventListener('mousedown', (e) => { 
+        e.stopPropagation(); 
+        toggleGameFocus(); 
+    });
+
+    window.addEventListener('mousedown', (e) => {
+        if (isFirstInteraction && menu.style.display !== 'flex') {
+            toggleGameFocus();
+        }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (document.pointerLockElement !== document.body) return;
+        if (Math.abs(e.movementX) > 600 || Math.abs(e.movementY) > 300) return;
+        const s = config.sens * 0.0006;
+        yawObj.rotation.y -= e.movementX * s;
+        pitchObj.rotation.x -= e.movementY * s;
+        pitchObj.rotation.x = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, pitchObj.rotation.x));
+    });
+
+    const geom = new THREE.SphereGeometry(0.7, 32, 32);
+    let currentGrid = [];
+
+    function rebuildGrid() {
+        const totalCells = config.gridX * config.gridY;
+        const maxLimit = Math.max(1, totalCells - 1);
+        const countS = document.getElementById('countS'), countI = document.getElementById('countI');
+        if (config.maxTargets > maxLimit) {
+            config.maxTargets = maxLimit;
+            countS.value = countI.value = maxLimit;
+        }
+        countS.max = countI.max = maxLimit;
+        currentGrid = [];
+        const step = 2.5;
+        const offsetX = (config.gridX - 1) * step / 2;
+        const offsetY = (config.gridY - 1) * step / 2;
+        for(let y = 0; y < config.gridY; y++) {
+            for(let x = 0; x < config.gridX; x++) {
+                currentGrid.push({ x: x * step - offsetX, y: y * step - offsetY });
+            }
+        }
+        targets.forEach(t => scene.remove(t));
+        targets = [];
+        for(let i=0; i<config.maxTargets; i++) spawn();
+        save();
+    }
+
+    function spawn() {
+        if (targets.length >= config.maxTargets || currentGrid.length === 0) return;
+        let avail = currentGrid.map((_, i) => i).filter(i => !targets.some(t => t.idx === i) && i !== lastIdx);
+        if (avail.length === 0) {
+            if (currentGrid.length === 1) avail = [0];
+            else return;
+        }
+        let idx = avail[Math.floor(Math.random() * avail.length)];
+        let mat = new THREE.MeshPhongMaterial({ color: config.color, emissive: config.color, emissiveIntensity: 0.3 });
+        let m = new THREE.Mesh(geom, mat);
+        m.idx = idx;
+        m.position.set(currentGrid[idx].x, currentGrid[idx].y, -config.dist);
+        scene.add(m); targets.push(m);
+    }
+
+    const sync = (s, i, key, cb) => {
+        const update = (v) => { config[key] = v; s.value = i.value = v; if(cb) cb(); save(); };
+        s.oninput = () => update(Number(s.value));
+        i.oninput = () => update(Number(i.value));
+    };
+
+    sync(document.getElementById('sensS'), document.getElementById('sensI'), 'sens');
+    sync(document.getElementById('countS'), document.getElementById('countI'), 'maxTargets', rebuildGrid);
+    sync(document.getElementById('gridXS'), document.getElementById('gridXI'), 'gridX', rebuildGrid);
+    sync(document.getElementById('gridYS'), document.getElementById('gridYI'), 'gridY', rebuildGrid);
+
+    const dS = document.getElementById('distS'), dV = document.getElementById('distV');
+    dS.oninput = () => { 
+        config.dist = Number(dS.value); 
+        dV.innerText = dS.value + "m"; 
+        targets.forEach(t => t.position.z = -config.dist); 
+        save();
+    };
+    document.getElementById('sizeS').oninput = (e) => { config.size = Number(e.target.value); save(); };
+    document.getElementById('colorI').oninput = (e) => { config.color = e.target.value; save(); };
+    document.getElementById('soundI').onchange = (e) => { config.sound = e.target.checked; save(); };
+
+    window.addEventListener('mousedown', (e) => {
+        if (document.pointerLockElement !== document.body || e.button !== 0) return;
+        removeStartMessage();
+        ray.setFromCamera(new THREE.Vector2(0,0), camera);
+        let hits = ray.intersectObjects(targets);
+        if (hits.length > 0) {
+            let t = hits[0].object;
+            if (config.sound) { hitSound.currentTime = 0; hitSound.play().catch(()=>{}); }
+            lastIdx = t.idx; scene.remove(t);
+            targets.splice(targets.indexOf(t), 1);
+            score++; document.getElementById('score-board').innerText = score;
+            spawn();
+        }
+    });
+
+    const ray = new THREE.Raycaster();
+    initUI();
+    rebuildGrid();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        while(targets.length < config.maxTargets) spawn();
+        while(targets.length > config.maxTargets) { let t = targets.pop(); scene.remove(t); }
+        targets.forEach(t => {
+            t.scale.set(config.size, config.size, config.size);
+            t.material.color.set(config.color);
+            t.material.emissive.set(config.color);
+        });
+        renderer.render(scene, camera);
+    }
+    window.onresize = () => {
+        camera.fov = getVerticalFov(103); camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    animate();
+</script>
+</body>
+</html>
