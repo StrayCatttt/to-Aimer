@@ -3,73 +3,188 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="ブラウザでプレイ可能なエイムトレーニング">
     <title>to Aimer</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #2f2f2f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
-        canvas { display: block; }
-        #start-message { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #00ffcc; font-size: 28px; font-weight: bold; text-transform: uppercase; text-shadow: 0 0 15px rgba(0, 255, 204, 0.7); z-index: 200; pointer-events: none; }
-        #ui-toggle-btn { position: fixed; top: 20px; left: 20px; background: rgba(0, 255, 204, 0.2); color: #00ffcc; border: 1px solid #00ffcc; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; z-index: 50; display: none; opacity: 0.6; transition: opacity 0.3s; }
-        #ui-toggle-btn:hover { opacity: 1.0; }
-        #crosshair { position: fixed; top: 50%; left: 50%; width: 6px; height: 6px; background: white; border: 1px solid black; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 10; }
-        #settings-menu { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 340px; background: rgba(20, 20, 20, 0.98); padding: 25px; border-radius: 15px; color: white; display: none; flex-direction: column; gap: 12px; border: 1px solid #444; z-index: 100; max-height: 90vh; overflow-y: auto; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #2f2f2f; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            user-select: none; 
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* --- カスタムスクロールバーのデザイン --- */
+        #settings-menu::-webkit-scrollbar,
+        #ranking-menu::-webkit-scrollbar,
+        #score-overlay::-webkit-scrollbar,
+        #score-pause-menu::-webkit-scrollbar {
+            width: 6px;
+        }
+        #settings-menu::-webkit-scrollbar-track,
+        #ranking-menu::-webkit-scrollbar-track,
+        #score-overlay::-webkit-scrollbar-track,
+        #score-pause-menu::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+        #settings-menu::-webkit-scrollbar-thumb,
+        #ranking-menu::-webkit-scrollbar-thumb,
+        #score-overlay::-webkit-scrollbar-thumb,
+        #score-pause-menu::-webkit-scrollbar-thumb {
+            background: #00ffcc;
+            border-radius: 10px;
+            box-shadow: 0 0 5px rgba(0, 255, 204, 0.5);
+        }
+        #settings-menu::-webkit-scrollbar-thumb:hover,
+        #ranking-menu::-webkit-scrollbar-thumb:hover,
+        #score-overlay::-webkit-scrollbar-thumb:hover,
+        #score-pause-menu::-webkit-scrollbar-thumb:hover {
+            background: #00cca3;
+        }
+
+        canvas { 
+            display: block; 
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
         
-        .setting-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; }
-        .setting-row label { font-size: 13px; width: 100px; flex-shrink: 0; }
-        input[type="range"] { flex-grow: 1; accent-color: #00ffcc; cursor: pointer; height: 6px; }
-        input[type="number"], .value-display { width: 60px; background: #111; color: #00ffcc; border: 1px solid #444; text-align: center; font-size: 13px; padding: 2px 0; flex-shrink: 0; }
+        .overlay-text { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #00ffcc; font-weight: bold; text-align: center; pointer-events: none; z-index: 200; text-transform: uppercase; }
+        #start-message { font-size: 32px; text-shadow: 0 0 15px rgba(0, 255, 204, 0.7); }
+        #countdown-display { font-size: 120px; display: none; text-shadow: 0 0 30px rgba(0, 255, 204, 0.5); }
+        #anykey-message { font-size: 32px; display: none; text-shadow: 0 0 15px rgba(0, 255, 204, 0.7); white-space: nowrap; }
+        
+        .side-btns { position: fixed; top: 20px; left: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 50; }
+        .side-btn { background: rgba(0, 255, 204, 0.2); color: #00ffcc; border: 1px solid #00ffcc; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; opacity: 0.6; transition: 0.3s; display: none; font-size: 13px; text-align: center; }
+        .side-btn:hover { opacity: 1.0; }
+        #score-mode-btn.active { color: #ff4444; border-color: #ff4444; background: rgba(255, 68, 68, 0.2); }
+
+        #crosshair { position: fixed; top: 50%; left: 50%; width: 4px; height: 4px; background: white; border: 1.5px solid black; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 10; }
+        
+        .target-hp-container { position: fixed; width: 60px; height: 6px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden; border: 1px solid #444; pointer-events: none; display: none; transform: translate(-50%, -100%); z-index: 5; }
+        .target-hp-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #2ecc71 0%, #f1c40f 100%); }
+        
+        #settings-menu, #ranking-menu, #score-overlay, #score-pause-menu { 
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 500px; background: rgba(15, 15, 15, 0.98); 
+            padding: 25px; border-radius: 15px; color: white; display: none; 
+            flex-direction: column; gap: 15px; border: 1px solid #00ffcc44; 
+            z-index: 100; max-height: 85vh; overflow-y: auto; box-sizing: border-box; 
+        }
+
+        .setting-row { display: grid; grid-template-columns: 150px 1fr 70px; align-items: center; gap: 15px; width: 100%; }
+        .setting-row.switch-row { grid-template-columns: 1fr 51px; justify-content: space-between; gap: 0; }
+        .setting-row label { font-size: 13px; color: #ccc; }
+        .locked-setting { opacity: 0.3; pointer-events: none; filter: grayscale(1); }
+        
+        input[type="range"] { accent-color: #00ffcc; cursor: pointer; height: 6px; width: 100%; margin: 0; }
+        input[type="number"], .value-display { width: 70px; background: #000; color: #00ffcc; border: 1px solid #333; text-align: center; font-size: 13px; padding: 4px 0; border-radius: 3px; }
+        input[type="color"] { border: 1px solid #333; width: 70px; height: 28px; background: #000; cursor: pointer; padding: 2px; box-sizing: border-box; border-radius: 3px; }
+        
+        .switch { position: relative; display: inline-block; width: 51px; height: 31px; min-width: 51px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider-switch { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .3s; border-radius: 31px; }
+        .slider-switch:before { position: absolute; content: ""; height: 27px; width: 27px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider-switch { background-color: #2ecc71; }
+        input:checked + .slider-switch:before { transform: translateX(20px); }
         
         #score-board { position: fixed; top: 20px; right: 20px; color: #00ffcc; font-size: 24px; font-weight: bold; pointer-events: none; }
-        button { padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; border: none; }
-        #resumeB { background: #00ffcc; color: #111; margin-top: 10px; }
-        #resetB { background: #333; color: #ff4444; border: 1px solid #ff4444; margin-top: 5px; font-size: 12px; }
+        
+        #score-hud { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); text-align: center; color: #fff; pointer-events: none; display: none; z-index: 60; }
+        #sh-timer { font-size: 42px; font-weight: bold; color: #ffcc00; }
+        #sh-points { font-size: 28px; color: #00ffcc; }
+        #sh-multiplier { font-size: 18px; color: #fff; opacity: 0.8; }
 
-        .switch { position: relative; display: inline-block; width: 51px !important; height: 31px !important; min-width: 51px !important; flex-shrink: 0; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #39393d; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 31px; }
-        .slider:before { position: absolute; content: ""; height: 27px; width: 27px; left: 2px; bottom: 2px; background-color: white; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%; box-shadow: 0 3px 6px rgba(0,0,0,0.4); }
-        input:checked + .slider { background-color: #34c759; }
-        input:checked + .slider:before { transform: translateX(20px); }
+        .rank-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #333; }
+        .rank-date { font-size: 10px; color: #777; }
+
+        button { padding: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; border: none; font-size: 14px; transition: 0.2s; }
+        .btn-main { background: #00ffcc; color: #111; }
+        .btn-yellow { background: #ffcc00; color: #111; }
+        .btn-sub { background: transparent; color: #ff4444; border: 1px solid #ff4444; }
     </style>
 </head>
 <body>
 
-<div id="start-message">Click to start</div>
-<div id="ui-toggle-btn">設定 (T)</div>
+<div id="start-message" class="overlay-text">Press the Any key to start</div>
+<div id="countdown-display" class="overlay-text">3</div>
+<div id="anykey-message" class="overlay-text">Press the Any key to start</div>
+
+<div class="side-btns">
+    <div id="ui-toggle-btn" class="side-btn">設定 (T)</div>
+    <div id="score-mode-btn" class="side-btn">スコアモード開始 (S)</div>
+    <div id="ranking-btn" class="side-btn">スコア一覧 (H)</div>
+</div>
+
 <div id="crosshair"></div>
 <div id="score-board">0</div>
 
-<div id="settings-menu">
-    <h3 style="margin:0; text-align:center; color:#00ffcc; border-bottom:1px solid #333; padding-bottom:10px;">一時停止</h3>
-    <div class="setting-row"><label>感度</label><input type="range" id="sensS" min="0.01" max="10" step="0.01"><input type="number" id="sensI" step="0.01"></div>
-    <div class="setting-row"><label>的の数</label><input type="range" id="countS" min="0" max="400" step="1"><input type="number" id="countI" min="0" max="400"></div>
-    <div class="setting-row"><label>グリッド X</label><input type="range" id="gridXS" min="1" max="20" step="1"><input type="number" id="gridXI" min="1" max="20"></div>
-    <div class="setting-row"><label>グリッド Y</label><input type="range" id="gridYS" min="1" max="20" step="1"><input type="number" id="gridYI" min="1" max="20"></div>
-    <div class="setting-row"><label>的の移動速度</label><input type="range" id="moveS" min="0" max="50" step="1"><input type="number" id="moveI" min="0" max="50"></div>
-    <div class="setting-row"><label>距離</label><input type="range" id="distS" min="5" max="50"><span id="distV" class="value-display">15m</span></div>
-    <div class="setting-row"><label>サイズ</label><input type="range" id="sizeS" min="1" max="15" step="1"><input type="number" id="sizeI" min="1" max="15"></div>
-    <div class="setting-row"><label>的カラー</label><input type="color" id="colorI"></div>
-    <div class="setting-row"><label>背景カラー</label><input type="color" id="bgColorI"></div>
-    
-    <div class="setting-row">
-        <label>背景グリッド</label>
-        <label class="switch"><input type="checkbox" id="gridToggleI"><span class="slider"></span></label>
-    </div>
-    <div class="setting-row">
-        <label>SE再生</label>
-        <label class="switch"><input type="checkbox" id="soundI"><span class="slider"></span></label>
-    </div>
+<div id="score-hud">
+    <div id="sh-timer">01:00</div>
+    <div id="sh-points">0</div>
+    <div id="sh-multiplier">x1.0</div>
+</div>
 
-    <button id="resumeB">ゲームを再開 (T)</button>
-    <button id="resetB">設定をリセット</button>
+<div id="score-overlay">
+    <h2 id="so-title" style="text-align:center; color:#00ffcc; margin:0;">RESULT</h2>
+    <div id="so-body" style="text-align:center; margin:20px 0;"></div>
+    <div id="so-rank-list" style="margin-bottom:20px; display:none;"></div>
+    <button id="so-start-btn" class="btn-main">もう一度プレイ (SPACE)</button>
+    <button id="so-exit-btn" class="btn-sub" style="margin-top:10px;">スコアモード終了 (S)</button>
+</div>
+
+<div id="score-pause-menu">
+    <h3 style="margin:0 0 10px 0; text-align:center; color:#00ffcc; border-bottom:1px solid #333; padding-bottom:15px; letter-spacing: 2px;">PAUSED (SCORE MODE)</h3>
+    <button id="sp-resumeB" class="btn-main">再開 (SPACE)</button>
+    <button id="sp-resetB" class="btn-yellow" style="margin-top:10px;">最初から (R)</button>
+    <button id="sp-exitB" class="btn-sub" style="margin-top:10px;">スコアモード終了 (S)</button>
+</div>
+
+<div id="settings-menu">
+    <h3 id="menu-title" style="margin:0 0 10px 0; text-align:center; color:#00ffcc; border-bottom:1px solid #333; padding-bottom:15px; letter-spacing: 2px;">PAUSE</h3>
+    <div class="setting-row"><label>感度</label><input type="range" id="sensS" min="0.01" max="10" step="0.01"><input type="number" id="sensI" step="0.01"></div>
+    <div class="setting-row s-lock"><label>的の数</label><input type="range" id="countS" min="0" max="399" step="1"><input type="number" id="countI"></div>
+    <div class="setting-row s-lock"><label>グリッド X</label><input type="range" id="gridXS" min="1" max="20" step="1"><input type="number" id="gridXI"></div>
+    <div class="setting-row s-lock"><label>グリッド Y</label><input type="range" id="gridYS" min="1" max="20" step="1"><input type="number" id="gridYI"></div>
+    <div class="setting-row s-lock"><label>グリッド Z</label><input type="range" id="gridZS" min="1" max="5" step="1"><input type="number" id="gridZI"></div>
+    <div class="setting-row s-lock"><label>的の移動速度</label><input type="range" id="moveS" min="0" max="50" step="1"><input type="number" id="moveI"></div>
+    <div class="setting-row s-lock"><label>距離 (基準)</label><input type="range" id="distS" min="5" max="50"><span id="distV" class="value-display">15m</span></div>
+    <div class="setting-row s-lock"><label>サイズ</label><input type="range" id="sizeS" min="1" max="15" step="1"><input type="number" id="sizeI"></div>
+    <div class="setting-row s-lock"><label>的の伸縮</label><input type="range" id="stretchS" min="1" max="15" step="1"><input type="number" id="stretchI"></div>
+    <div class="setting-row"><label>的の色</label><div></div><input type="color" id="colorI"></div>
+    <div class="setting-row"><label>背景カラー</label><div></div><input type="color" id="bgColorI"></div>
+    <div class="setting-row"><label>クロスヘア</label><div></div><input type="color" id="chColorI"></div>
+    <div class="setting-row switch-row s-lock"><label>トラッキング</label><label class="switch"><input type="checkbox" id="trackingI"><span class="slider-switch"></span></label></div>
+    <div class="setting-row switch-row"><label>マウス軌跡</label><label class="switch"><input type="checkbox" id="trailToggleI"><span class="slider-switch"></span></label></div>
+    <div class="setting-row switch-row"><label>背景グリッド</label><label class="switch"><input type="checkbox" id="gridToggleI"><span class="slider-switch"></span></label></div>
+    <div class="setting-row switch-row"><label>SE再生</label><label class="switch"><input type="checkbox" id="soundI"><span class="slider-switch"></span></label></div>
+    <button id="resumeB" class="btn-main" style="margin-top:10px;">ゲームを再開 (T)</button>
+    <button id="resetB" class="btn-sub" style="margin-top:5px; font-size:11px;">設定をすべてリセット</button>
+</div>
+
+<div id="ranking-menu">
+    <h3 style="text-align:center; color:#00ffcc; margin:0 0 15px 0;">TOP 10 RECORDS</h3>
+    <div id="rank-list"></div>
+    <button id="rank-close-btn" class="btn-main" style="margin-top:15px;">CLOSE (H)</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-    const STORAGE_KEY = 'aimer_settings_v3_box';
-    const defaultConfig = { sens: 0.5, dist: 15, size: 8, color: '#00ffcc', bgColor: '#2f2f2f', sound: true, maxTargets: 3, gridX: 5, gridY: 5, moveSpeed: 0, showGrid: true };
+    const STORAGE_KEY = 'aimer_settings_vFinal_ThermoSmooth_V6';
+    const RANK_KEY = 'aimer_rankings_vFinal_V10';
+    const defaultConfig = { sens: 0.5, dist: 15, size: 8, stretch: 1, color: '#00ffcc', bgColor: '#2f2f2f', sound: true, maxTargets: 3, gridX: 5, gridY: 5, gridZ: 1, moveSpeed: 0, showGrid: true, chColor: '#ffffff', tracking: false, showTrail: false };
+    
     let config = { ...defaultConfig };
+    let backupConfig = null;
+    let isScoreMode = false;
+    let scoreState = 'idle'; 
+    let scoreVal = 0, multiplier = 1.0, timeLeft = 60, timerInt = null, practiceScore = 0;
 
     const scene = new THREE.Scene();
+    
     const getVerticalFov = (hFov) => 2 * Math.atan(Math.tan(hFov * Math.PI / 360) / (window.innerWidth / window.innerHeight)) * (180 / Math.PI);
     const camera = new THREE.PerspectiveCamera(getVerticalFov(103), window.innerWidth/window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -77,149 +192,427 @@
     document.body.appendChild(renderer.domElement);
     scene.add(new THREE.AmbientLight(0xffffff, 1.0));
 
-    const yawObj = new THREE.Object3D();
-    const pitchObj = new THREE.Object3D();
+    function onWindowResize() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        renderer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.fov = getVerticalFov(103);
+        camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', onWindowResize);
+    document.addEventListener('fullscreenchange', onWindowResize);
+
+    const yawObj = new THREE.Object3D(), pitchObj = new THREE.Object3D();
     scene.add(yawObj); yawObj.add(pitchObj); pitchObj.add(camera);
 
-    let targets = [], currentGrid = [], score = 0, lastIdx = -1, isFirstInteraction = true;
+    let targets = [], currentGrid = [], lastIdx = -1, isFirst = true;
+    let isMouseDown = false, trackingTimer = 0;
     const geom = new THREE.SphereGeometry(0.7, 32, 32), hitSound = new Audio('hit.mp3'), ray = new THREE.Raycaster();
 
-    const boxSize = 100;
+    let trailLines = [], lastTrailPos = new THREE.Vector3(), currentHue = 0.55; 
+
+    function closeAllWindows() {
+        ['settings-menu', 'ranking-menu', 'score-overlay', 'score-pause-menu'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.display = 'none';
+        });
+    }
+
+    function performFirstStart() {
+        if (!isFirst) return;
+        isFirst = false;
+        document.getElementById('start-message').style.display = 'none'; 
+        document.querySelectorAll('.side-btn').forEach(b => b.style.display = 'block'); 
+        document.body.requestPointerLock(); 
+    }
+
+    function createRibbonSegment(start, end, hue) {
+        const dist = start.distanceTo(end);
+        if (dist <= 0) return;
+        const material = new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(hue, 1, 0.5), transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, dist), material);
+        mesh.position.copy(start).lerp(end, 0.5); mesh.lookAt(end);
+        scene.add(mesh); trailLines.push({ mesh, life: 1.0 });
+    }
+
     const grids = [];
     const createGrid = (x, y, z, rx, ry, rz) => {
-        const g = new THREE.GridHelper(boxSize, 10, 0x000000, 0x000000);
+        const g = new THREE.GridHelper(100, 10, 0x000000, 0x000000);
         g.position.set(x, y, z); g.rotation.set(rx, ry, rz);
         g.material.opacity = 0.4; g.material.transparent = true;
         scene.add(g); grids.push(g);
     };
-    createGrid(0, -50, 0, 0, 0, 0); createGrid(0, 50, 0, 0, 0, 0);
-    createGrid(-50, 0, 0, 0, 0, Math.PI/2); createGrid(50, 0, 0, 0, 0, Math.PI/2);
-    createGrid(0, 0, -50, Math.PI/2, 0, 0); createGrid(0, 0, 50, Math.PI/2, 0, 0);
+    createGrid(0,-50,0,0,0,0); createGrid(0,50,0,0,0,0); createGrid(-50,0,0,0,0,Math.PI/2); createGrid(50,0,0,0,0,Math.PI/2); createGrid(0,0,-50,Math.PI/2,0,0); createGrid(0,0,50,Math.PI/2,0,0);
 
-    function initUI() {
-        document.getElementById('sensS').value = document.getElementById('sensI').value = config.sens;
-        document.getElementById('gridXS').value = document.getElementById('gridXI').value = config.gridX;
-        document.getElementById('gridYS').value = document.getElementById('gridYI').value = config.gridY;
-        document.getElementById('countS').value = document.getElementById('countI').value = config.maxTargets;
-        document.getElementById('moveS').value = document.getElementById('moveI').value = config.moveSpeed;
-        document.getElementById('distS').value = config.dist;
-        document.getElementById('distV').innerText = config.dist + "m";
-        document.getElementById('sizeS').value = document.getElementById('sizeI').value = config.size;
-        document.getElementById('colorI').value = config.color;
-        document.getElementById('bgColorI').value = config.bgColor;
-        document.getElementById('soundI').checked = config.sound;
-        document.getElementById('gridToggleI').checked = config.showGrid;
-        scene.background = new THREE.Color(config.bgColor);
-        grids.forEach(g => g.visible = config.showGrid);
+    function removeTarget(t) {
+        if (!t) return;
+        if (t.hpContainer && t.hpContainer.parentNode) document.body.removeChild(t.hpContainer);
+        scene.remove(t);
+        const idx = targets.indexOf(t);
+        if (idx > -1) targets.splice(idx, 1);
+    }
+
+    function updateTargetCountLimit() {
+        const maxLimit = Math.max(1, (config.gridX * config.gridY * config.gridZ) - 1);
+        const s = document.getElementById('countS'), i = document.getElementById('countI');
+        s.max = i.max = maxLimit;
+        if (config.maxTargets > maxLimit) {
+            config.maxTargets = maxLimit;
+            s.value = i.value = maxLimit;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+        }
+        while (targets.length > config.maxTargets) removeTarget(targets[targets.length - 1]);
     }
 
     function rebuildGrid() {
         currentGrid = [];
         const step = 2.5, offsetX = (config.gridX - 1) * step / 2, offsetY = (config.gridY - 1) * step / 2;
-        for(let y = 0; y < config.gridY; y++) for(let x = 0; x < config.gridX; x++) currentGrid.push({ x: x * step - offsetX, y: y * step - offsetY });
-        targets.forEach(t => scene.remove(t)); targets = [];
+        for(let z = 0; z < config.gridZ; z++) for(let y = 0; y < config.gridY; y++) for(let x = 0; x < config.gridX; x++)
+            currentGrid.push({ x: x * step - offsetX, y: y * step - offsetY, z: -(config.dist + (z * 3.5)) });
+        updateTargetCountLimit();
+        [...targets].forEach(t => removeTarget(t));
     }
 
     function spawn() {
-        if (config.maxTargets <= 0 || targets.length >= config.maxTargets || currentGrid.length === 0) return;
+        if (scoreState === 'result' || scoreState === 'counting' || config.maxTargets <= 0 || targets.length >= config.maxTargets || currentGrid.length === 0) return;
         let avail = currentGrid.map((_, i) => i).filter(i => !targets.some(t => t.gridIdx === i) && i !== lastIdx);
         if (avail.length === 0) return;
         let idx = avail[Math.floor(Math.random() * avail.length)];
         let m = new THREE.Mesh(geom, new THREE.MeshPhongMaterial({ color: config.color, emissive: config.color, emissiveIntensity: 0.3 }));
-        m.gridIdx = idx;
-        const originX = currentGrid[idx].x;
-        m.position.set(originX, currentGrid[idx].y, -config.dist);
-        m.minX = originX - 5; m.maxX = originX + 5; m.vel = (Math.random() > 0.5 ? 1 : -1);
+        const hpCont = document.createElement('div'); hpCont.className = 'target-hp-container';
+        const hpBar = document.createElement('div'); hpBar.className = 'target-hp-bar';
+        hpCont.appendChild(hpBar); document.body.appendChild(hpCont);
+        m.gridIdx = idx; m.hp = 5; m.hpContainer = hpCont; m.hpBar = hpBar;
+        const pos = currentGrid[idx]; m.position.set(pos.x, pos.y, pos.z);
+        m.baseX = pos.x; 
+        m.minX = pos.x - 5; m.maxX = pos.x + 5; m.vel = (Math.random() > 0.5 ? 1 : -1);
         scene.add(m); targets.push(m);
     }
 
-    const toggleGameFocus = () => {
-        if (isFirstInteraction) { document.getElementById('start-message').style.display = 'none'; document.getElementById('ui-toggle-btn').style.display = 'block'; isFirstInteraction = false; }
-        if (document.pointerLockElement === document.body) document.exitPointerLock(); else document.body.requestPointerLock();
-    };
+    function damageTarget(t) {
+        if (!t || scoreState === 'result' || scoreState === 'counting') return;
+        t.hp--;
+        if (config.sound) { const s = hitSound.cloneNode(); s.volume = 0.5; s.play().catch(()=>{}); }
+        if (config.tracking) {
+            t.hpContainer.style.display = 'block';
+            t.hpBar.style.width = (t.hp / 5 * 100) + '%';
+        }
+        if (t.hp <= 0) {
+            lastIdx = t.gridIdx; removeTarget(t);
+            if (!isScoreMode) {
+                practiceScore++; document.getElementById('score-board').innerText = practiceScore;
+            } else {
+                scoreVal += Math.floor(100 * multiplier);
+                multiplier += 0.1; updateHUD();
+            }
+            spawn();
+        }
+    }
 
-    document.addEventListener('pointerlockchange', () => {
-        const locked = document.pointerLockElement === document.body;
-        document.getElementById('settings-menu').style.display = locked ? 'none' : 'flex';
-        document.getElementById('ui-toggle-btn').style.display = locked ? 'block' : 'none';
-    });
+    function toggleScoreMode() {
+        clearInterval(timerInt);
+        if (!isScoreMode) {
+            backupConfig = { ...config };
+            isScoreMode = true;
+            config = { ...config, maxTargets: 3, gridX: 5, gridY: 5, gridZ: 1, moveSpeed: 0, size: 8, dist: 15, tracking: false, stretch: 1 };
+            document.getElementById('score-mode-btn').innerText = "スコアモード終了 (S)";
+            document.getElementById('score-mode-btn').classList.add('active');
+            document.getElementById('score-board').style.display = 'none';
+            document.querySelectorAll('.s-lock').forEach(el => el.classList.add('locked-setting'));
+            startReady();
+        } else {
+            isScoreMode = false;
+            if (backupConfig) config = { ...backupConfig };
+            scoreState = 'idle';
+            closeAllWindows();
+            document.getElementById('score-mode-btn').innerText = "スコアモード開始 (S)";
+            document.getElementById('score-mode-btn').classList.remove('active');
+            document.getElementById('score-board').style.display = 'block';
+            document.getElementById('score-hud').style.display = 'none';
+            document.getElementById('anykey-message').style.display = 'none';
+            document.getElementById('countdown-display').style.display = 'none';
+            document.getElementById('start-message').style.display = 'block'; 
+            document.querySelectorAll('.s-lock').forEach(el => el.classList.remove('locked-setting'));
+            isFirst = true; 
+            if (document.pointerLockElement) document.exitPointerLock();
+        }
+        initUI(); rebuildGrid();
+    }
 
-    window.addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 't') toggleGameFocus(); });
-    document.getElementById('ui-toggle-btn').addEventListener('click', toggleGameFocus);
-    document.getElementById('resumeB').addEventListener('click', toggleGameFocus);
-    document.getElementById('resetB').addEventListener('click', () => { if(confirm('リセットしますか？')) { config = { ...defaultConfig }; localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); initUI(); rebuildGrid(); } });
+    function startReady() {
+        clearInterval(timerInt);
+        scoreState = 'ready'; scoreVal = 0; multiplier = 1.0; timeLeft = 60;
+        updateHUD(); closeAllWindows();
+        document.getElementById('score-hud').style.display = 'block';
+        document.getElementById('anykey-message').style.display = 'block';
+        document.getElementById('countdown-display').style.display = 'none';
+        [...targets].forEach(t => removeTarget(t)); 
+    }
 
-    // --- 視点移動処理（完全に元のロジックへ戻しました） ---
+    function startCountdown() {
+        if (scoreState !== 'ready' && scoreState !== 'result') return;
+        clearInterval(timerInt);
+        scoreVal = 0; multiplier = 1.0; timeLeft = 60; updateHUD();
+        scoreState = 'counting';
+        closeAllWindows();
+        document.getElementById('anykey-message').style.display = 'none';
+        const cd = document.getElementById('countdown-display');
+        cd.style.display = 'block';
+        let count = 3; cd.innerText = count;
+        if (!document.pointerLockElement) document.body.requestPointerLock();
+        const interval = setInterval(() => {
+            if (scoreState !== 'counting') { clearInterval(interval); return; }
+            count--;
+            if (count <= 0) {
+                clearInterval(interval);
+                cd.style.display = 'none';
+                startPlay();
+            } else cd.innerText = count;
+        }, 700);
+    }
+
+    function startPlay() {
+        scoreState = 'playing';
+        if (!document.pointerLockElement) document.body.requestPointerLock();
+        clearInterval(timerInt);
+        timerInt = setInterval(() => {
+            if (scoreState === 'playing') {
+                timeLeft--; 
+                if (timeLeft <= 0) { timeLeft = 0; updateHUD(); finishGame(); }
+                else updateHUD();
+            }
+        }, 1000);
+    }
+
+    function finishGame() {
+        clearInterval(timerInt);
+        scoreState = 'result'; 
+        saveRecord(scoreVal);
+        document.exitPointerLock();
+        closeAllWindows();
+        [...targets].forEach(t => removeTarget(t)); 
+        document.getElementById('score-overlay').style.display = 'flex';
+        document.getElementById('so-body').innerHTML = `Final Score: <span style="color:#00ffcc; font-size:32px;">${scoreVal}</span>`;
+        showOverlayRanks();
+    }
+
+    function updateHUD() {
+        const m = Math.floor(timeLeft/60), s = timeLeft%60;
+        document.getElementById('sh-timer').innerText = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        document.getElementById('sh-points').innerText = scoreVal;
+        document.getElementById('sh-multiplier').innerText = `x${multiplier.toFixed(1)}`;
+    }
+
+    function saveRecord(s) {
+        let ranks = JSON.parse(localStorage.getItem(RANK_KEY) || "[]");
+        const d = new Date();
+        const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        ranks.push({ score: s, date: dateStr }); ranks.sort((a,b) => b.score - a.score);
+        localStorage.setItem(RANK_KEY, JSON.stringify(ranks.slice(0, 10)));
+    }
+
+    function showOverlayRanks() {
+        const list = document.getElementById('so-rank-list');
+        list.style.display = 'block';
+        let ranks = JSON.parse(localStorage.getItem(RANK_KEY) || "[]");
+        list.innerHTML = ranks.map((r, i) => `<div class="rank-item"><span>${i+1}. <b>${r.score}</b></span><span class="rank-date">${r.date}</span></div>`).join('');
+    }
+
+    function openRankMenu() {
+        if (scoreState === 'playing' || scoreState === 'counting') return;
+        closeAllWindows();
+        const menu = document.getElementById('ranking-menu');
+        const list = document.getElementById('rank-list');
+        let ranks = JSON.parse(localStorage.getItem(RANK_KEY) || "[]");
+        list.innerHTML = ranks.length ? ranks.map((r, i) => `<div class="rank-item"><div><div style="font-weight:bold; color:#00ffcc;">${r.score}</div><div class="rank-date">${r.date}</div></div><span>#${i+1}</span></div>`).join('') : "No data";
+        menu.style.display = 'flex'; 
+        if (document.pointerLockElement) document.exitPointerLock();
+    }
+
     document.addEventListener('mousemove', (e) => {
-        if (document.pointerLockElement !== document.body) return;
-        if (Math.abs(e.movementX) > 600 || Math.abs(e.movementY) > 300) return;
+        if (document.pointerLockElement !== document.body || scoreState === 'paused') return;
+        if (Math.abs(e.movementX) > 600 || Math.abs(e.movementY) > 300) return; 
         const s = config.sens * 0.0006;
         yawObj.rotation.y -= e.movementX * s;
         pitchObj.rotation.x -= e.movementY * s;
         pitchObj.rotation.x = Math.max(-Math.PI/2 + 0.01, Math.min(Math.PI/2 - 0.01, pitchObj.rotation.x));
+        if (config.showTrail) {
+            const rawSpeed = Math.sqrt(e.movementX**2 + e.movementY**2);
+            let targetHue = 0.55 - (rawSpeed / (rawSpeed < 50 ? 60 : 30)) * 0.55;
+            targetHue = Math.max(0, targetHue);
+            currentHue += (targetHue - currentHue) * 0.2;
+            const combinedQuat = new THREE.Quaternion().multiplyQuaternions(yawObj.quaternion, pitchObj.quaternion);
+            const currentPos = new THREE.Vector3().copy(yawObj.position).add(new THREE.Vector3(0, 0, -1.8).applyQuaternion(combinedQuat));
+            if (lastTrailPos.length() > 0) createRibbonSegment(lastTrailPos.clone(), currentPos.clone(), currentHue);
+            lastTrailPos.copy(currentPos);
+        }
     });
 
     window.addEventListener('mousedown', (e) => {
-        if (isFirstInteraction) { toggleGameFocus(); return; }
-        if (document.pointerLockElement !== document.body || e.button !== 0) return;
+        if (isFirst) { performFirstStart(); return; }
+        if (scoreState === 'result' || scoreState === 'counting') return;
+        if (isScoreMode && scoreState === 'ready') { startCountdown(); return; }
+        if (document.pointerLockElement !== document.body || e.button !== 0 || scoreState === 'paused') return;
+        isMouseDown = true;
         ray.setFromCamera(new THREE.Vector2(0,0), camera);
         let hits = ray.intersectObjects(targets);
         if (hits.length > 0) {
-            let t = hits[0].object;
-            if (config.sound) { hitSound.currentTime = 0; hitSound.play().catch(()=>{}); }
-            lastIdx = t.gridIdx; scene.remove(t); targets.splice(targets.indexOf(t), 1);
-            score++; document.getElementById('score-board').innerText = score;
-            spawn();
+            if (!config.tracking) hits[0].object.hp = 1;
+            damageTarget(hits[0].object);
+        } else if (isScoreMode && scoreState === 'playing') {
+            scoreVal = Math.floor(scoreVal * 0.8); multiplier = 1.0; updateHUD();
         }
+    });
+    window.addEventListener('mouseup', () => isMouseDown = false);
+
+    window.addEventListener('keydown', (e) => {
+        if (isFirst) { performFirstStart(); return; }
+        const k = e.key.toLowerCase();
+        if (isScoreMode) {
+            if (scoreState === 'ready' || scoreState === 'result') {
+                if (k === ' ') { startCountdown(); return; }
+                if (k === 's') { toggleScoreMode(); return; }
+            }
+            if (k === ' ' && scoreState === 'playing') { document.exitPointerLock(); return; }
+            if (k === ' ' && scoreState === 'paused') { document.body.requestPointerLock(); return; }
+            if (k === 'r' && scoreState === 'paused') { startReady(); return; }
+        }
+        if (k === 't') { 
+            if (!isScoreMode) { 
+                if (document.pointerLockElement) document.exitPointerLock();
+                else document.body.requestPointerLock();
+            } 
+        }
+        if (k === 'h') {
+            const rankMenu = document.getElementById('ranking-menu');
+            if (rankMenu.style.display === 'flex') {
+                rankMenu.style.display = 'none';
+                if (!isScoreMode) document.body.requestPointerLock();
+            } else openRankMenu();
+        }
+        if (k === 's') toggleScoreMode();
     });
 
     const sync = (idS, idI, key, cb) => {
         const s = document.getElementById(idS), i = document.getElementById(idI);
-        const up = (v) => { config[key] = v; if(cb) cb(); localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
+        const up = (v) => { config[key] = v; if(cb) cb(); localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); updateTargetCountLimit(); };
         s.oninput = () => { i.value = s.value; up(Number(s.value)); };
         i.onchange = () => { s.value = i.value; up(Number(i.value)); };
     };
+    sync('sensS', 'sensI', 'sens'); sync('countS', 'countI', 'maxTargets');
+    sync('gridXS', 'gridXI', 'gridX', rebuildGrid); sync('gridYS', 'gridYI', 'gridY', rebuildGrid); sync('gridZS', 'gridZI', 'gridZ', rebuildGrid);
+    sync('moveS', 'moveI', 'moveSpeed'); sync('sizeS', 'sizeI', 'size'); sync('stretchS', 'stretchI', 'stretch');
+    document.getElementById('distS').oninput = (e) => { config.dist = Number(e.target.value); document.getElementById('distV').innerText = e.target.value + "m"; rebuildGrid(); };
+    document.getElementById('colorI').oninput = (e) => { 
+        config.color = e.target.value; 
+        targets.forEach(t => { t.material.color.set(config.color); t.material.emissive.set(config.color); });
+    };
+    document.getElementById('bgColorI').oninput = (e) => { config.bgColor = e.target.value; scene.background.set(config.bgColor); };
+    document.getElementById('chColorI').oninput = (e) => { config.chColor = e.target.value; document.getElementById('crosshair').style.background = e.target.value; };
+    document.getElementById('soundI').onchange = (e) => config.sound = e.target.checked;
+    document.getElementById('gridToggleI').onchange = (e) => { config.showGrid = e.target.checked; grids.forEach(g => g.visible = config.showGrid); };
+    document.getElementById('trackingI').onchange = (e) => { config.tracking = e.target.checked; if(!config.tracking) targets.forEach(t => t.hpContainer.style.display='none'); };
+    document.getElementById('trailToggleI').onchange = (e) => { config.showTrail = e.target.checked; if(!config.showTrail) { lastTrailPos.set(0,0,0); currentHue = 0.55; } };
 
-    sync('sensS', 'sensI', 'sens');
-    sync('countS', 'countI', 'maxTargets');
-    sync('gridXS', 'gridXI', 'gridX', rebuildGrid);
-    sync('gridYS', 'gridYI', 'gridY', rebuildGrid);
-    sync('moveS', 'moveI', 'moveSpeed');
-    sync('sizeS', 'sizeI', 'size');
-
-    document.getElementById('distS').oninput = (e) => { config.dist = Number(e.target.value); document.getElementById('distV').innerText = e.target.value + "m"; localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
-    document.getElementById('colorI').oninput = (e) => { config.color = e.target.value; localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
-    document.getElementById('bgColorI').oninput = (e) => { config.bgColor = e.target.value; scene.background.set(config.bgColor); localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
-    document.getElementById('soundI').onchange = (e) => { config.sound = e.target.checked; localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
-    document.getElementById('gridToggleI').onchange = (e) => { config.showGrid = e.target.checked; grids.forEach(g => g.visible = config.showGrid); localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); };
-
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) config = { ...defaultConfig, ...JSON.parse(saved) };
-    initUI(); rebuildGrid();
+    function initUI() {
+        const ids = ['sens','gridX','gridY','gridZ','moveSpeed','size','stretch'];
+        ids.forEach(id => {
+            const k = id === 'moveSpeed' ? 'moveSpeed' : id;
+            const s = document.getElementById((id==='moveSpeed'?'move':id)+'S'), n = document.getElementById((id==='moveSpeed'?'move':id)+'I');
+            if(s) s.value = config[k]; if(n) n.value = config[k];
+        });
+        updateTargetCountLimit();
+        document.getElementById('countS').value = document.getElementById('countI').value = config.maxTargets;
+        document.getElementById('distS').value = config.dist; document.getElementById('distV').innerText = config.dist + "m";
+        document.getElementById('colorI').value = config.color; document.getElementById('bgColorI').value = config.bgColor;
+        document.getElementById('chColorI').value = config.chColor; document.getElementById('soundI').checked = config.sound;
+        document.getElementById('gridToggleI').checked = config.showGrid; document.getElementById('trackingI').checked = config.tracking;
+        document.getElementById('trailToggleI').checked = config.showTrail;
+        scene.background = new THREE.Color(config.bgColor); grids.forEach(g => g.visible = config.showGrid);
+        document.getElementById('crosshair').style.background = config.chColor;
+    }
 
     function animate() {
         requestAnimationFrame(animate);
-        if(targets.length < config.maxTargets) spawn();
-        
-        targets.forEach(t => {
-            // 色とサイズ、距離をリアルタイムで反映（的ごとの個別更新）
-            t.material.color.set(config.color);
-            t.material.emissive.set(config.color);
-            const s = config.size * 0.15;
-            t.scale.set(s, s, s);
-            t.position.z = -config.dist;
-
-            if (config.moveSpeed > 0) {
-                t.position.x += t.vel * (config.moveSpeed * 0.003);
-                if (t.position.x > t.maxX || t.position.x < t.minX) t.vel *= -1;
-            } else if (currentGrid[t.gridIdx]) {
-                t.position.x = currentGrid[t.gridIdx].x;
+        if (scoreState !== 'paused' && scoreState !== 'result') {
+            if (scoreState !== 'counting') { if(config.maxTargets > 0 && targets.length < config.maxTargets) spawn(); }
+            for (let i = trailLines.length - 1; i >= 0; i--) {
+                trailLines[i].life -= 0.022; trailLines[i].mesh.material.opacity = trailLines[i].life * 0.85;
+                if (trailLines[i].life <= 0) { scene.remove(trailLines[i].mesh); trailLines.splice(i, 1); }
             }
-        });
+            if (config.showTrail) currentHue += (0.55 - currentHue) * 0.04;
+            if (config.tracking && isMouseDown && (scoreState === 'playing' || !isScoreMode)) {
+                if (Date.now() - trackingTimer >= 100) {
+                    ray.setFromCamera(new THREE.Vector2(0,0), camera);
+                    let hits = ray.intersectObjects(targets); if (hits.length > 0) damageTarget(hits[0].object);
+                    trackingTimer = Date.now();
+                }
+            }
+            const vec = new THREE.Vector3();
+            targets.forEach(t => {
+                t.lookAt(yawObj.position);
+                const b = config.size * 0.15; t.scale.set(b/config.stretch, b, b);
+                if (config.moveSpeed > 0 && (scoreState === 'playing' || !isScoreMode)) { 
+                    t.position.x += t.vel*(config.moveSpeed*0.003); 
+                    if(t.position.x>t.maxX || t.position.x<t.minX) t.vel*=-1; 
+                } else t.position.x += (t.baseX - t.position.x) * 0.1;
+                t.getWorldPosition(vec); vec.project(camera);
+                if (vec.z < 1 && config.tracking && t.hp < 5) {
+                    t.hpContainer.style.display = 'block';
+                    t.hpContainer.style.left = (vec.x * 0.5 + 0.5) * window.innerWidth + 'px';
+                    t.hpContainer.style.top = (-(vec.y * 0.5) + 0.5) * window.innerHeight - (config.size * 5) + 'px';
+                } else t.hpContainer.style.display = 'none';
+            });
+        }
         renderer.render(scene, camera);
     }
-    window.onresize = () => { camera.fov = getVerticalFov(103); camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
-    animate();
+
+    document.getElementById('ui-toggle-btn').onclick = () => { if(!isScoreMode) document.body.requestPointerLock(); };
+    document.getElementById('score-mode-btn').onclick = toggleScoreMode;
+    document.getElementById('ranking-btn').onclick = openRankMenu;
+    document.getElementById('rank-close-btn').onclick = () => {
+        document.getElementById('ranking-menu').style.display='none';
+        if (!isScoreMode) document.body.requestPointerLock();
+    };
+    document.getElementById('resumeB').onclick = () => document.body.requestPointerLock();
+    document.getElementById('sp-resumeB').onclick = () => document.body.requestPointerLock();
+    document.getElementById('sp-resetB').onclick = startReady;
+    document.getElementById('resetB').onclick = () => {
+        if(confirm('設定をすべて初期状態に戻しますか？')) {
+            config = { ...defaultConfig }; localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+            initUI(); rebuildGrid();
+        }
+    };
+    const exitScoreMode = () => { if (isScoreMode) toggleScoreMode(); };
+    document.getElementById('sp-exitB').onclick = exitScoreMode;
+    document.getElementById('so-exit-btn').onclick = exitScoreMode;
+    document.getElementById('so-start-btn').onclick = startCountdown;
+
+    document.addEventListener('pointerlockchange', () => {
+        if (document.pointerLockElement === document.body) {
+            closeAllWindows();
+            if (isScoreMode) {
+                if (scoreState === 'ready') document.getElementById('anykey-message').style.display = 'block';
+                if (scoreState === 'paused') scoreState = 'playing';
+            }
+        } else {
+            // スコア一覧（ranking-menu）が表示されている場合は設定ウィンドウを開かない
+            const rankVisible = document.getElementById('ranking-menu').style.display === 'flex';
+            if (isScoreMode) {
+                if (scoreState === 'playing') {
+                    scoreState = 'paused';
+                    document.getElementById('score-pause-menu').style.display = 'flex';
+                }
+            } else if (scoreState !== 'result' && !isFirst && !rankVisible) {
+                document.getElementById('settings-menu').style.display = 'flex';
+            }
+        }
+    });
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(saved) config = { ...config, ...JSON.parse(saved) };
+    initUI(); rebuildGrid(); animate();
 </script>
 </body>
 </html>
