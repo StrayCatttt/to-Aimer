@@ -161,6 +161,7 @@
     <div class="setting-row switch-row"><label>マウス軌跡</label><label class="switch"><input type="checkbox" id="trailToggleI"><span class="slider-switch"></span></label></div>
     <div class="setting-row switch-row"><label>背景グリッド</label><label class="switch"><input type="checkbox" id="gridToggleI"><span class="slider-switch"></span></label></div>
     <div class="setting-row switch-row"><label>SE再生</label><label class="switch"><input type="checkbox" id="soundI"><span class="slider-switch"></span></label></div>
+    <div class="setting-row switch-row"><label>ショートカットを非表示</label><label class="switch"><input type="checkbox" id="hideShortcutsI"><span class="slider-switch"></span></label></div>
     <button id="resumeB" class="btn-main" style="margin-top:10px;">ゲームを再開 (T)</button>
     <button id="resetB" class="btn-sub" style="margin-top:5px; font-size:11px;">設定をすべてリセット</button>
 </div>
@@ -175,7 +176,7 @@
 <script>
     const STORAGE_KEY = 'aimer_settings_vFinal_ThermoSmooth_V6';
     const RANK_KEY = 'aimer_rankings_vFinal_V10';
-    const defaultConfig = { sens: 0.5, dist: 15, size: 8, stretch: 1, color: '#00ffcc', bgColor: '#2f2f2f', sound: true, maxTargets: 3, gridX: 5, gridY: 5, gridZ: 1, moveSpeed: 0, showGrid: true, chColor: '#ffffff', tracking: false, showTrail: false };
+    const defaultConfig = { sens: 0.5, dist: 15, size: 8, stretch: 1, color: '#00ffcc', bgColor: '#2f2f2f', sound: true, maxTargets: 3, gridX: 5, gridY: 5, gridZ: 1, moveSpeed: 0, showGrid: true, chColor: '#ffffff', tracking: false, showTrail: false, hideShortcuts: false };
     
     let config = { ...defaultConfig };
     let backupConfig = null;
@@ -212,6 +213,18 @@
 
     let trailLines = [], lastTrailPos = new THREE.Vector3(), currentHue = 0.55; 
 
+    function applyShortcutsVisibility() {
+        const btns = document.querySelectorAll('.side-btn');
+        btns.forEach(btn => {
+            if (config.hideShortcuts) {
+                btn.style.display = 'none';
+            } else {
+                // isFirstがfalseの場合のみ表示（初回起動前は非表示のまま）
+                if (!isFirst) btn.style.display = 'block';
+            }
+        });
+    }
+
     function closeAllWindows() {
         ['settings-menu', 'ranking-menu', 'score-overlay', 'score-pause-menu'].forEach(id => {
             const el = document.getElementById(id);
@@ -223,7 +236,9 @@
         if (!isFirst) return;
         isFirst = false;
         document.getElementById('start-message').style.display = 'none'; 
-        document.querySelectorAll('.side-btn').forEach(b => b.style.display = 'block'); 
+        if (!config.hideShortcuts) {
+            document.querySelectorAll('.side-btn').forEach(b => b.style.display = 'block');
+        }
         document.body.requestPointerLock(); 
     }
 
@@ -514,6 +529,11 @@
     document.getElementById('gridToggleI').onchange = (e) => { config.showGrid = e.target.checked; grids.forEach(g => g.visible = config.showGrid); };
     document.getElementById('trackingI').onchange = (e) => { config.tracking = e.target.checked; if(!config.tracking) targets.forEach(t => t.hpContainer.style.display='none'); };
     document.getElementById('trailToggleI').onchange = (e) => { config.showTrail = e.target.checked; if(!config.showTrail) { lastTrailPos.set(0,0,0); currentHue = 0.55; } };
+    document.getElementById('hideShortcutsI').onchange = (e) => {
+        config.hideShortcuts = e.target.checked;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+        applyShortcutsVisibility();
+    };
 
     function initUI() {
         const ids = ['sens','gridX','gridY','gridZ','moveSpeed','size','stretch'];
@@ -529,6 +549,7 @@
         document.getElementById('chColorI').value = config.chColor; document.getElementById('soundI').checked = config.sound;
         document.getElementById('gridToggleI').checked = config.showGrid; document.getElementById('trackingI').checked = config.tracking;
         document.getElementById('trailToggleI').checked = config.showTrail;
+        document.getElementById('hideShortcutsI').checked = config.hideShortcuts;
         scene.background = new THREE.Color(config.bgColor); grids.forEach(g => g.visible = config.showGrid);
         document.getElementById('crosshair').style.background = config.chColor;
     }
@@ -581,7 +602,7 @@
     document.getElementById('resetB').onclick = () => {
         if(confirm('設定をすべて初期状態に戻しますか？')) {
             config = { ...defaultConfig }; localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-            initUI(); rebuildGrid();
+            initUI(); rebuildGrid(); applyShortcutsVisibility();
         }
     };
     const exitScoreMode = () => { if (isScoreMode) toggleScoreMode(); };
@@ -597,7 +618,6 @@
                 if (scoreState === 'paused') scoreState = 'playing';
             }
         } else {
-            // スコア一覧（ranking-menu）が表示されている場合は設定ウィンドウを開かない
             const rankVisible = document.getElementById('ranking-menu').style.display === 'flex';
             if (isScoreMode) {
                 if (scoreState === 'playing') {
